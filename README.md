@@ -14,7 +14,7 @@ The stock backlight often went out before I had finished reading the display. Th
 
 ### Display
 
-The RM-MC40ELK has a three-line display, but the first line of the stock Hi-MD playback screen is left blank. These layouts let you use all three lines to show more information.
+The RM-MC40ELK has a three-line display. During Hi-MD playback, the top line on the stock screen is either blank or shows the group name. I rarely need the group name there, so I added layouts that use all three lines to show more track information.
 
 | Setting | First line | Second line | Third line |
 | --- | --- | --- | --- |
@@ -34,7 +34,7 @@ On the stock firmware, pressing a button to light the backlight also activates t
 
 ### Group Skip
 
-I was surprised that the RM-MC40ELK had no dedicated group navigation controls, so I mapped them to a long press of the previous and next track buttons.
+I was surprised to find that the stock RM-MC40ELK offers neither ten-track skip nor group skip. I mapped these functions to a long press of the previous and next track buttons.
 
 | Setting | Previous and next buttons during playback or while stopped |
 | --- | --- |
