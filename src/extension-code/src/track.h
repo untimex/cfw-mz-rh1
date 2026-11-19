@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "chinese_display.h"
 
 #include "fw/display.h"
 #include "fw/sys.h"
@@ -46,7 +47,7 @@ struct scroll_state {
     uint16_t scroll_index;
     uint8_t pause;
     uint8_t speed;
-    char buffer[300];
+    char buffer[6 * (OLED_NAME_LIMIT + 16) + SCROLL_GAP + 1];
 };
 
 struct track_view_state {

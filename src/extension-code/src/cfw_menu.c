@@ -2,11 +2,13 @@
 #include "fw/sys.h"
 #include "fw/display.h"
 #include "fw/menu.h"
+#include "fw/tracks.h"
 
 #include "menu_resources.h"
 #include "menu_macros.h"
 
 #include "cfw_config.h"
+#include "chinese_display.h"
 #include "track_config.h"
 /*
 #define MENU_TEXT_ABOUT "By Sir68k"
@@ -162,6 +164,19 @@ MENU_VALUE_ENTRY(MENU_RESOURCE_ID(OLED_BR_H_M2),  CFW_CONFIG_OLED_BRIGHTNESS_MED
 MENU_VALUE_ENTRY(MENU_RESOURCE_ID(OLED_BR_H_H),   CFW_CONFIG_OLED_BRIGHTNESS_HIGH)
 MENU_VALUE_END(oled_brightness_h, cfw_config.cfw_config_oled_brightness_high, store_config_to_eeprom)
 
+static uint32_t apply_chinese_mode(void) {
+    chinese_display_invalidate();
+    track_view_state.invalidated = 1;
+    return store_config_to_eeprom();
+}
+
+MENU_VALUE_START(chinese_mode)
+MENU_VALUE_ENTRY(MENU_RESOURCE_ID(CHINESE_OFF_LABEL), CHINESE_OFF)
+MENU_VALUE_ENTRY(MENU_RESOURCE_ID(CHINESE_PINYIN_LABEL), CHINESE_PINYIN)
+MENU_VALUE_ENTRY(MENU_RESOURCE_ID(CHINESE_ORIGINAL_LABEL), CHINESE_ORIGINAL)
+MENU_VALUE_ENTRY(MENU_RESOURCE_ID(CHINESE_SKIP_LABEL), CHINESE_SKIP)
+MENU_VALUE_END(chinese_mode, cfw_config.chinese_mode, apply_chinese_mode)
+
 MENU_VALUE_START(track_style)
 MENU_VALUE_ENTRY(MENU_RESOURCE_ID(TRACK_STYLE1),  1)
 MENU_VALUE_ENTRY(MENU_RESOURCE_ID(TRACK_STYLE2),  2)
@@ -174,6 +189,56 @@ MENU_VALUE_START(tmark_override)
 MENU_VALUE_ENTRY(MENU_RESOURCE_ID(TMARK_NORM),  0)
 MENU_VALUE_ENTRY(MENU_RESOURCE_ID(TMARK_SKIP),  1)
 MENU_VALUE_END(tmark_override, cfw_config.cfw_tmark_override, store_config_to_eeprom)
+
+static uint8_t remote_backlight_choice;
+
+static uint32_t store_remote_backlight(void)
+{
+    unsigned selected = remote_backlight_choice;
+    *(volatile uint8_t *)0x0200464d = selected <= 2 ? selected : 0;
+    ((func *)THUMB_ADDR(0x4342c))();
+    ((func *)THUMB_ADDR(0x3ff54))();
+    cfw_config.remote_light_scale = selected == 3 ? 2 : selected == 4 ? 4 : 0;
+    return store_config_to_eeprom();
+}
+
+MENU_VALUE_START(remote_light)
+MENU_VALUE_ENTRY(MENU_RESOURCE_ID(REMOTE_STOCK), 0)
+MENU_VALUE_ENTRY(MENU_RESOURCE_ID(REMOTE_DOUBLE), 3)
+MENU_VALUE_ENTRY(MENU_RESOURCE_ID(REMOTE_QUAD), 4)
+MENU_VALUE_ENTRY(0x20508, 1)
+MENU_VALUE_ENTRY(0x30508, 2)
+};
+static const struct t_menu_value_config config_values_remote_light = {
+    .entries = menu_values_remote_light,
+    .ptr_a = &remote_backlight_choice, .ptr_b = &remote_backlight_choice,
+    .len = sizeof(menu_values_remote_light) / sizeof(menu_values_remote_light[0]),
+};
+static const struct t_menu_config_entry menu_cfg_remote_light[] = {
+    {{.uint = 0x02010008}, 0x2d},
+    {{.ptr = &config_values_remote_light}, MENU_CFG_VAL_MENU},
+    {{.ptr = store_remote_backlight}, MENU_CFG_CHANGE_HOOK},
+    {{.uint = 0x20}, 0x28},
+    {{.uint = 1}, 0x2c},
+    {0, 0}
+};
+
+MENU_VALUE_START(joy_dial_wake)
+MENU_VALUE_ENTRY(MENU_RESOURCE_ID(JOY_WAKE_OFF), 0)
+MENU_VALUE_ENTRY(MENU_RESOURCE_ID(JOY_WAKE_ON), 1)
+MENU_VALUE_END(joy_dial_wake, cfw_config.joy_dial_wake, store_config_to_eeprom)
+
+MENU_VALUE_START(remote_long_skip)
+MENU_VALUE_ENTRY(MENU_RESOURCE_ID(LONG_SKIP_OFF), 0)
+MENU_VALUE_ENTRY(MENU_RESOURCE_ID(LONG_SKIP_ON), 1)
+MENU_VALUE_END(remote_long_skip, cfw_config.remote_long_skip, store_config_to_eeprom)
+
+MENU_VALUE_START(remote_display)
+MENU_VALUE_ENTRY(MENU_RESOURCE_ID(DISPLAY_STOCK), 0)
+MENU_VALUE_ENTRY(MENU_RESOURCE_ID(DISPLAY_ITA), 1)
+MENU_VALUE_ENTRY(MENU_RESOURCE_ID(DISPLAY_ITL), 2)
+MENU_VALUE_ENTRY(MENU_RESOURCE_ID(DISPLAY_TAL), 3)
+MENU_VALUE_END(remote_display, cfw_config.remote_display, store_config_to_eeprom)
 
 MENU_START(oled)
 MENU_ITEM_VALUE(MENU_RESOURCE_ID(OLED_AUTO_OFF), oled_auto)
@@ -193,6 +258,74 @@ MENU_VALUE_END_SIMPLE(about, cfw_config_about)
 MENU_START(cfw)
 MENU_ITEM_SUBMENU(MENU_RESOURCE_ID(OLED), oled)
 MENU_ITEM_VALUE(MENU_RESOURCE_ID(TRACK_STYLE), track_style)
+MENU_ITEM_VALUE(MENU_RESOURCE_ID(CHINESE_MODE), chinese_mode)
 MENU_ITEM_VALUE(MENU_RESOURCE_ID(TMARK), tmark_override)
 MENU_ITEM_VALUE(MENU_RESOURCE_ID(ABOUT), about)
 MENU_END(cfw)
+/* Keep the same 40ELK options on both disc types, except for the
+ * custom display layout, which requires Hi-MD metadata. */
+#define REMOTE_OPTION_FIRST \
+    {0x208, fw_menu_main_callbacks, (void *)0xc9b84, 3}, \
+    {0x308, fw_menu_main_callbacks, (void *)0xc9be4, 3}, \
+    {0x408, fw_menu_main_callbacks, (void *)0xc9c3c, 3}, \
+    {0x508, fw_menu_main_callbacks, menu_cfg_remote_light, 3},
+
+#define REMOTE_OPTION_LAST \
+    MENU_ITEM_VALUE(MENU_RESOURCE_ID(JOY_WAKE), joy_dial_wake) \
+    MENU_ITEM_VALUE(MENU_RESOURCE_ID(LONG_SKIP), remote_long_skip) \
+    {0x708, fw_menu_main_callbacks, (void *)0xc9d04, 3}, \
+    {0x808, fw_menu_main_callbacks, (void *)0xc9d5c, 3}, \
+    {0xa08, (void *)0xc9e64, (void *)0xc9e04, 1}, \
+    {0xd08, fw_menu_main_callbacks, (void *)0xc9f34, 3}, \
+    {0xc08, fw_menu_main_callbacks, (void *)0xc9edc, 3}, \
+    {0xe08, fw_menu_main_callbacks, (void *)0xc9fec, 3}, \
+    {0xf08, fw_menu_main_callbacks, (void *)0xca04c, 6}, \
+    {0x1208, (void *)0xca174, (void *)0xca154, 1}, \
+    {UINT32_MAX, 0, 0, 0}
+
+static const struct t_basic_menu menu_items_remote_option[] = {
+    REMOTE_OPTION_FIRST
+    MENU_ITEM_VALUE(MENU_RESOURCE_ID(REMOTE_DISPLAY), remote_display)
+    REMOTE_OPTION_LAST
+};
+static const struct t_basic_menu menu_items_remote_option_md[] = {
+    REMOTE_OPTION_FIRST
+    REMOTE_OPTION_LAST
+};
+#undef REMOTE_OPTION_FIRST
+#undef REMOTE_OPTION_LAST
+
+static const struct t_menu_config_entry remote_option_config = {
+    {.ptr = menu_items_remote_option}, MENU_CFG_SUB_MENU
+};
+static const struct t_menu_config_entry remote_option_md_config = {
+    {.ptr = menu_items_remote_option_md}, MENU_CFG_SUB_MENU
+};
+
+int cfw_is_40elk(void)
+{
+    if (!(*(volatile const uint8_t *)0x8004dd & 1)) return 0;
+    /* The two D1 captures retain RMC02G even after unplugging.
+     * Only use that identification while the stock link reports attached. */
+    return *(volatile const uint16_t *)0x800506 == 0x4d52 &&
+           *(volatile const uint32_t *)0x800508 == 0x47323043 &&
+           *(volatile const uint8_t *)0x800661 == 3;
+}
+
+const struct t_menu_config_entry *cfw_lookup_option_config(uint32_t config, uint32_t kind)
+{
+    if (kind == MENU_CFG_SUB_MENU && config == 0xc9aa4 &&
+        (*(volatile uint32_t *)0x805644 & 8) && cfw_is_40elk())
+        return *disc_type == DISC_TYPE_MD ? &remote_option_md_config : &remote_option_config;
+    return (const void *)((func2 *)THUMB_ADDR(0xaa924))(config, kind);
+}
+
+void cfw_open_option_item(const struct t_basic_menu *item, uint32_t selected)
+{
+    if (item->config == menu_cfg_remote_light) {
+        unsigned native = *(volatile uint8_t *)0x0200464d;
+        unsigned duration = cfw_config.remote_light_scale;
+        remote_backlight_choice = native != 0 ? native : duration == 2 ? 3 : duration == 4 ? 4 : 0;
+    }
+    ((func2 *)THUMB_ADDR(0xa9a28))((uint32_t)item, selected);
+}

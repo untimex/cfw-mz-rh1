@@ -18,14 +18,14 @@ struct cfw_config {
     uint8_t cfw_config_oled_brightness_high;
     uint8_t cfw_config_oled_auto_off;
     uint8_t cfw_config_oled_usb_mode;
-    uint8_t v_5;
-    uint8_t v_6;
+    uint8_t chinese_mode;
+    uint8_t remote_long_skip;
     uint8_t v_7;
     uint8_t v_8;
     uint8_t cfw_tmark_override;
-    uint8_t v_10;
-    uint8_t v_11;
-    uint8_t v_12;
+    uint8_t remote_light_scale;
+    uint8_t joy_dial_wake;
+    uint8_t remote_display;
     uint32_t track_layout_display[2];
 };
 

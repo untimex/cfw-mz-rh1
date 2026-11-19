@@ -26,14 +26,14 @@ struct cfw_config cfw_config = {
     .cfw_config_oled_brightness_high = CFW_CONFIG_OLED_BRIGHTNESS_HIGH,
     .cfw_config_oled_auto_off = CFW_CONFIG_OLED_MODE_NORMAL,
     .cfw_config_oled_usb_mode = CFW_CONFIG_OLED_MODE_NORMAL,
-    .v_5 = 0,
-    .v_6 = 0,
+    .chinese_mode = 0,
+    .remote_long_skip = 0,
     .v_7 = 0,
     .v_8 = 0,
     .cfw_tmark_override = 0,
-    .v_10 = 0,
-    .v_11 = 0,
-    .v_12 = 0,
+    .remote_light_scale = 0,
+    .joy_dial_wake = 0,
+    .remote_display = 0,
     .track_layout_display = {0, 0}
 };
 
@@ -54,6 +54,15 @@ void load_config_from_eeprom() {
         cfw_config.cfw_config_oled_usb_mode = cfw_eeprom_data.cfw_config_oled_usb_mode;
 
     cfw_config.cfw_tmark_override = cfw_eeprom_data.cfw_tmark_override;
+
+    cfw_config.chinese_mode = cfw_eeprom_data.chinese_mode <= 3 ? cfw_eeprom_data.chinese_mode : 0;
+    cfw_config.joy_dial_wake = (cfw_eeprom_data.joy_dial_wake == 1);
+    cfw_config.remote_long_skip = (cfw_eeprom_data.remote_long_skip == 1);
+
+    cfw_config.remote_display = cfw_eeprom_data.remote_display <= 3 ? cfw_eeprom_data.remote_display : 0;
+
+    uint8_t scale = cfw_eeprom_data.remote_light_scale;
+    cfw_config.remote_light_scale = (scale == 2 || scale == 4) ? scale : 0;
 
     cfw_config.track_layout_display[0] = cfw_eeprom_data.track_layout_display[0];
     cfw_config.track_layout_display[1] = cfw_eeprom_data.track_layout_display[1];

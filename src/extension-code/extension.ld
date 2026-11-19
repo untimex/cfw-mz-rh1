@@ -31,6 +31,7 @@ SECTIONS
     {
         __data_start__ = .;
         *(.data*)
+        . = ALIGN(4);  /* init() advances in 32-bit words */
         __data_end__ = .;
     } > s_sram
 
@@ -42,6 +43,9 @@ SECTIONS
         __bss_start__ = .;
         *(.bss*)
         *(COMMON)
+        . = ALIGN(4);  /* init() advances in 32-bit words */
         __bss_end__ = .;
     } > s_sram
 }
+
+ASSERT(LOADADDR(.data) + SIZEOF(.data) <= ORIGIN(s_flash) + LENGTH(s_flash), "CFW initial data exceeds flash window");

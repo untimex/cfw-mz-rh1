@@ -62,7 +62,7 @@ static uint32_t sanitized_strlen(unsigned char *s, uint32_t maxlen) {
     if (!s)
         return 0;
 
-    while (*s && len < maxlen) {
+    while (len < maxlen && *s) {
         unsigned char c = *s;
         // replace unprintable chars
         if (c < 0x20 || c > 0x7E) {
@@ -152,6 +152,17 @@ uint32_t int_len(uint32_t n) {
     else return 4;
 }
 
+typedef uint32_t name_getter(uint32_t, uint32_t, char *, uint32_t *);
+static uint32_t append_name(unsigned item, name_getter *stock, unsigned himd,
+                            unsigned track, char *buffer, uint32_t *pos) {
+    const char *text = chinese_display_field(item);
+    if (!text) return stock(himd, track, buffer + *pos, pos);
+    unsigned length = strlen(text);
+    memcpy(buffer + *pos, text, length);
+    *pos += length;
+    return length;
+}
+
 static uint32_t make_track_string(char *buffer, uint32_t idx) {
     memset(buffer, 0, member_size(struct scroll_state, buffer));
 
@@ -167,6 +178,9 @@ static uint32_t make_track_string(char *buffer, uint32_t idx) {
         layout_config = (idx == 0) ? DEFAULT_DISPLAY_0_LAYOUT : DEFAULT_DISPLAY_1_LAYOUT;
     }
     
+    if ((cfw_config.track_layout_display[idx] & OLED_HANDLER_MARKER) == OLED_HANDLER_MARKER)
+        return 0;
+
     while (layout_config > 0) {
         item_type = layout_config & 0xF;
         layout_config = layout_config >> 4;
@@ -176,30 +190,30 @@ static uint32_t make_track_string(char *buffer, uint32_t idx) {
             int_to_string(track, &buffer[i], 1, 0, 1);
             i += int_len(track);
             buffer[i++] = ' ';
-            l = sw_get_track_name(isHiMD, track, &buffer[i], &i);
+            l = append_name(TRACK_ITEM_TRACK_NAME, sw_get_track_name, isHiMD, track, buffer, &i);
         }
         
         if (item_type == TRACK_ITEM_GROUP_NAME) {
             APPEND_ICON(buffer, i, ICON_GROUP_L, ICON_GROUP_R);
-            l = sw_get_group_name(isHiMD, track, &buffer[i], &i);
+            l = append_name(TRACK_ITEM_GROUP_NAME, sw_get_group_name, isHiMD, track, buffer, &i);
             REMOVE_ICON_IF_EMPTY(l, buffer, i);
         }
         
         if (item_type == TRACK_ITEM_DISC_NAME) {
             APPEND_ICON(buffer, i, ICON_DISC_L, ICON_DISC_R);
-            l = sw_get_disc_name(isHiMD, track, &buffer[i], &i);
+            l = append_name(TRACK_ITEM_DISC_NAME, sw_get_disc_name, isHiMD, track, buffer, &i);
             REMOVE_ICON_IF_EMPTY(l, buffer, i);
         }
         
         if (item_type == TRACK_ITEM_ARTIST_NAME) {
             APPEND_ICON(buffer, i, ICON_ARTIST_L, ICON_ARTIST_R);
-            l = sw_get_artist_name(isHiMD, track, &buffer[i], &i);
+            l = append_name(TRACK_ITEM_ARTIST_NAME, sw_get_artist_name, isHiMD, track, buffer, &i);
             REMOVE_ICON_IF_EMPTY(l, buffer, i);
         }
         
         if (item_type == TRACK_ITEM_ALBUM_NAME) {
             APPEND_ICON(buffer, i, ICON_ALBUM_L, ICON_ALBUM_R);
-            l = sw_get_album_name(isHiMD, track, &buffer[i], &i);
+            l = append_name(TRACK_ITEM_ALBUM_NAME, sw_get_album_name, isHiMD, track, buffer, &i);
             REMOVE_ICON_IF_EMPTY(l, buffer, i);
         }
         
@@ -269,7 +283,8 @@ static void get_scroll_frame(char *display, struct scroll_state *state)
 uint32_t cfw_get_operation_state() {
     uint32_t state = *operation_state;
 
-    if (state == 1) { // TOC is being read
+    if (state == 1 && device_power_mode_b[0] != 1 && device_power_mode_b[0] != 2) { // TOC is being read
+        chinese_display_invalidate();
         track_view_state.invalidated = 1;
     }
 
@@ -320,6 +335,14 @@ static void track_update_state() {
 
 
 uint32_t track_title_renderer(uint32_t p1, uint32_t idx) {
+    uint8_t mode = device_power_mode_b[0];
+    if (mode == 1 || mode == 2) return 0;
+    if (cfw_config.chinese_mode && chinese_display_prepare()) {
+        /* Base 1.0A0 playback row has handlers 0x16 and 0x25. The latter
+         * table entry now points here, so call its original address directly. */
+        if (idx) return ((func2*)THUMB_ADDR(0xaf372))(p1,idx);
+        return fw_oled_display_handlers[0x16](p1,idx);
+    }
     uint32_t layout_config = cfw_config.track_layout_display[idx];
     if ((layout_config & OLED_HANDLER_MARKER) == OLED_HANDLER_MARKER) {
         return fw_oled_display_handlers[layout_config & OLED_HANDLER_MASK](p1, idx);

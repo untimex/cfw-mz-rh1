@@ -1,7 +1,7 @@
 [firmware]
 path   = "base-fw/flash_v1.0A0_without_key_sector.bin"
 sha256 = "97632e25627376845a00bcb28f312af5c56766f319d56f5da1d49cdb96eb923b"
-output = "build/fw_rh1_v1.2r5_sir68k.bin"
+output = "build/RH1-Remote-1.3r0-Group-Skip.bin"
 symbols = "src/extension-code/build/extension.sym"
 
 ################
@@ -12,13 +12,13 @@ symbols = "src/extension-code/build/extension.sym"
 name     = "[FW Version] In binary"
 address  = 0x00000b30
 original = [ 0xA0, 0x10 ]
-bytes    = [ 0x05, 0x12 ]
+bytes    = [ 0x00, 0x13 ]
 
 [[patch]]
 name     = "[FW Version] As a string"
 address  = 0x00000b32
 original = "1.0A0"
-bytes    = [0x31, 0x2e, 0x32, 0xB2, 0xA5] # 1.2r5 where r2 uses smaller glyphs
+bytes    = [0x31, 0x2e, 0x33, 0xB2, 0xA0] # 1.3r0 where r2 uses smaller glyphs
 
 [[patch]]
 name     = "[FW Version] Enable full FW version in menu #1"
@@ -238,6 +238,132 @@ b        = "cfw_process_inp_state_key2 + 1"
 ###############################################
 ## Extension data/code for new functionality ##
 ###############################################
+
+[[patch]]
+name     = "[Remote LCD] Scale the Auto countdown"
+address  = 0x0002a1e2
+original = [0x01, 0x38, 0xb8, 0x73]
+bl       = "cfw_remote_countdown_hook"
+
+[[patch]]
+name = "[Remote LCD] Joy Dial Backlight after stock input arbitration"
+address = 0x3e0c8
+original = [0x00, 0xf0, 0x6a, 0xf8]
+bl = "cfw_joy_key_gate"
+
+[[patch]]
+name = "[Remote LCD] Clear Jog Click suppression after a debounced release"
+address = 0x3e02e
+original = [0x0, 0xf0, 0x7, 0xfa]
+bl = "cfw_joy_decode_adc"
+
+[[patch]]
+name = "[Long Skip] Defer short action while the playback hold timer is armed"
+address = 0x3e8f2
+original = [0x00, 0xf0, 0x21, 0xf8]
+bl = "cfw_long_skip_press"
+
+[[patch]]
+name = "[Long Skip] Defer the stopped track-selection event"
+address = 0x3e8e0
+original = [0x00, 0xf0, 0x2a, 0xf8]
+bl = "cfw_long_skip_stopped_press"
+
+[[patch]]
+name = "[Long Skip] Use the selected stopped repeat or hold flag"
+address = 0x3e8e4
+original = [0x10, 0x20]
+bytes = [0xc0, 0x46]
+
+[[patch]]
+name = "[Long Skip] Cancel pending action when another input takes over"
+address = 0x3e0d6
+original = [0x00, 0xf0, 0x29, 0xfa]
+bl = "cfw_long_skip_release"
+
+[[patch]]
+name = "[Long Skip] Deliver a deferred short action on release"
+address = 0x3e10c
+original = [0x00, 0xf0, 0x0e, 0xfa]
+bl = "cfw_long_skip_release"
+
+[[patch]]
+name = "[Long Skip] Select the native group event when the hold expires"
+address = 0x3f2ae
+original = [0xff, 0xf7, 0x43, 0xfb]
+bl = "cfw_long_skip_expire"
+
+[[patch]]
+name = "[Long Skip] Use the returned native or cleared repeat flag"
+address = 0x3f2b2
+original = [0x02, 0x20]
+bytes = [0xc0, 0x46]
+
+[[patch]]
+name = "[Remote LCD] Three-line display row dispatcher"
+address = 0xb0e7a
+original = [0x07, 0xf0, 0xc4, 0xf8]
+bl = "cfw_remote_display_hook"
+
+[[patch]]
+name = "[OLED] cfw_prepare_oled_icons"
+address = 0x381ac
+original = [2, 240, 36, 250]
+bl = "cfw_prepare_oled_icons"
+
+[[patch]]
+name = "[OLED] cfw_prepare_oled_status"
+address = 0x381c8
+original = [2, 240, 236, 252]
+bl = "cfw_prepare_oled_status"
+
+[[patch]]
+name = "[OLED] cfw_oled_frame"
+address = 0x381ea
+original = [118, 240, 87, 251]
+bl = "cfw_oled_frame"
+
+[[patch]]
+name = "[OLED] cfw_submit_oled_clear"
+address = 0x9f6ea
+original = [157, 247, 155, 254]
+bl = "cfw_submit_oled_clear"
+
+[[patch]]
+name = "[OLED] Finish the body display tick only when needed"
+address = 0x300d0
+original = [111, 240, 100, 250]
+bl = "cfw_finish_oled_tick"
+
+[[patch]]
+name = "[OLED] Driver flush handled by cfw_finish_oled_tick"
+address = 0x300d4
+original = [110, 240, 110, 253]
+bytes = [0xc0, 0x46, 0xc0, 0x46]
+
+[[patch]]
+name = "cfw_lookup_option_config"
+address = 0xaa784
+original = [0, 240, 206, 248]
+bl = "cfw_lookup_option_config"
+
+[[patch]]
+name = "cfw_load_menu_string_remote"
+address = 0xb3bcc
+original = [1, 240, 48, 250]
+bl = "cfw_load_menu_string_remote"
+
+[[patch]]
+name = "cfw_remote_start_hook"
+address = 0x2a23a
+original = [201, 93, 129, 115]
+bl = "cfw_remote_start_hook"
+
+[[patch]]
+name = "cfw_open_option_item"
+address = 0xa99ca
+original = [0, 240, 45, 248]
+bl = "cfw_open_option_item"
 
 [[patch]]
 name    = "Extensions"

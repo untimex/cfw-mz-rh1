@@ -53,6 +53,26 @@
     X(TRACK_STYLE4,   0x000408FF, "VU|TRACK+TIME"    ) \
     X(TRACK_STYLE5,   0x000508FF, "CODEC|TRACK+TIME" ) \
     \
+    X(REMOTE_LIGHT, 0x000009FF, "Backlight") \
+    X(REMOTE_STOCK, 0x000109FF, "4 sec") \
+    X(REMOTE_DOUBLE, 0x000209FF, "8 sec") \
+    X(REMOTE_QUAD, 0x000309FF, "16 sec") \
+    X(LONG_SKIP, 0xaff, "Group Skip") \
+    X(LONG_SKIP_OFF, 0x10aff, "Off") \
+    X(LONG_SKIP_ON, 0x20aff, "Long Press") \
+    X(JOY_WAKE, 0x00000BFF, "Jog Click") \
+    X(JOY_WAKE_OFF, 0x00010BFF, "Default") \
+    X(JOY_WAKE_ON, 0x00020BFF, "Backlight") \
+    X(REMOTE_DISPLAY, 0xcff, "Display") \
+    X(DISPLAY_STOCK, 0x10cff, "Default") \
+    X(DISPLAY_ITA, 0x20cff, "Info+Title+Artist") \
+    X(DISPLAY_ITL, 0x30cff, "Info+Title+Album") \
+    X(DISPLAY_TAL, 0x40cff, "Title+Artist+Album") \
+    X(CHINESE_MODE, 0xdff, "ChineseCharacter") \
+    X(CHINESE_OFF_LABEL, 0x10dff, "Off") \
+    X(CHINESE_PINYIN_LABEL, 0x20dff, "Pinyin") \
+    X(CHINESE_ORIGINAL_LABEL, 0x30dff, "Original") \
+    X(CHINESE_SKIP_LABEL, 0x40dff, "Skip") \
     X(ABOUT,         0x00000FFF, "About"         ) \
     X(ABOUT_A,       0x00010FFF, "CFW by Sir68k  \x8A" ) \
     X(ABOUT_B,       0x00020FFF, "minidisc.wiki  \x8A" ) \

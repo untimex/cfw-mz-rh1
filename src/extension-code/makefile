@@ -30,7 +30,11 @@ SRCS = src/init.c \
 	   src/menu.c \
 	   src/oled_config.c \
 	   src/moved_data.c \
-	   src/input.c
+	   src/input.c \
+       src/remote_light.c \
+       src/remote_display.c \
+       src/remote_long_skip.c \
+       src/chinese_display.c
 
 INCLUDES += ./
 

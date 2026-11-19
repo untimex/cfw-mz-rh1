@@ -4,6 +4,13 @@
 #include "fw/tracks.h"
 #include "menu_resources.h"
 
+static uint32_t cfw_remote_menu_label(uint32_t id)
+{
+    uint32_t i = 0;
+    while (i < sizeof(menu_id_table) / sizeof(menu_id_table[0]) && menu_id_table[i] != id) ++i;
+    return i;
+}
+
 // Rewrite menu resource lookup
 
 #define MENU_SPACE 0x20
@@ -47,6 +54,13 @@ int cfw_load_menu_string_oled(uint32_t id, char *dest, uint8_t *len, char *n, ui
             return -1;
     }
 
+    _Static_assert(sizeof(menu_str_CHINESE_MODE) - 1 <= 16, "Framed OLED label width");
+    if (id == MENU_RESOURCE_ID(DISPLAY_ITA) ||
+        id == MENU_RESOURCE_ID(DISPLAY_TAL)) {
+        _Static_assert(sizeof(menu_str_DISPLAY_ITA) - 1 <= 18 && sizeof(menu_str_DISPLAY_TAL) - 1 <= 18, "layout label width");
+        return fw_load_string_resource(offset, menu_data, 0x10, 1, idx, dest, len, n);
+    }
+
     *dest = ((config & 8) != 0) ? MENU_START : MENU_SPACE;
 
     res = fw_load_string_resource(offset, menu_data, 0x10, 1, idx, dest + 1, len, n);
@@ -72,4 +86,19 @@ int cfw_load_menu_string_oled(uint32_t id, char *dest, uint8_t *len, char *n, ui
 
     *len = tmp_len;
     return res;
+}
+typedef int remote_string_loader(uint32_t, char *, uint8_t *, uint8_t *, void *, uint32_t);
+int cfw_load_menu_string_remote(uint32_t id, char *dest, uint8_t *len,
+                                uint8_t *encoding, void *aux, uint32_t flags)
+{
+    if ((id & 0xff) != MENU_CFW_ID_MARKER)
+        return ((remote_string_loader *)THUMB_ADDR(0xb5030))(id, dest, len, encoding, aux, flags);
+
+    uint32_t i = cfw_remote_menu_label(id);
+    if (i == sizeof(menu_id_table) / sizeof(menu_id_table[0])) return -1;
+    const char *label = menu_string_table[i];
+    *len = strlen(label);
+    *encoding = 0;
+    memcpy(dest, label, *len);
+    return 0;
 }
