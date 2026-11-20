@@ -1,6 +1,6 @@
 [简体中文](README.zh-CN.md)
 
-# Sony MZ-RH1 Custom Firmware 1.3r3
+# Sony MZ-RH1 Custom Firmware 1.3r5
 
 This community build for the Sony MZ-RH1 is based on [Sir68k/cfw-mz-rh1](https://github.com/Sir68k/cfw-mz-rh1). It adds backlight, display layout, and group navigation settings for the **RM-MC40ELK three-line remote** and improves the handling of track information containing Han characters on the recorder's OLED displays.
 
@@ -19,13 +19,16 @@ The RM-MC40ELK has a three-line display. During Hi-MD playback, the top line on 
 | Setting | First line | Second line | Third line |
 | --- | --- | --- | --- |
 | `Default` | Stock layout | Stock layout | Stock layout |
+| `Title+Artist/Album` | Track number and playback time | Track title | Artist and album alternate |
 | `Info+Title+Artist` | Track number and playback time | Track title | Artist |
 | `Info+Title+Album` | Track number and playback time | Track title | Album |
 | `Title+Artist+Album` | Track title | Artist | Album |
 
 Artist and album are separate track fields in Hi-MD mode. When a disc is used in standard MD mode, the `Display` option is hidden and the playback screen uses the stock layout. The saved custom layout returns when you switch back to Hi-MD. The remote's `DISPLAY` button still cycles through the stock information pages.
 
-Long layout names scroll in the `Display` menu. On the custom playback screen, each row scrolls independently when its text exceeds the available width. Short titles, artist names, and album names stay still while another row scrolls.
+Long layout names scroll in the `Display` menu. On the custom playback screen, each row scrolls independently when its text exceeds the available width. Five Chinese characters or ten half-width English characters fit on a line and stay still, even while another row scrolls.
+
+In `Title+Artist/Album`, the third line alternates between artist and album at the stock firmware’s interval. If a name is still scrolling when that interval ends, the display waits until the end of the name is visible before switching.
 
 ### Jog Click
 
@@ -62,30 +65,30 @@ The firmware identifies individual Han characters, so Japanese kanji can also tr
 
 ## Installation and verification
 
-Get the `RH1-Remote-1.3r3-40ELK-Scroll.bin` image from the [1.3r3 release](https://github.com/untimex/cfw-mz-rh1/releases/tag/rh1-1.3r3). The image is `0xFF000` bytes. Back up your recorder's firmware before flashing with the upstream [MZ-RH1 WebUSB flasher](https://sir68k.re/rh1/fw/). Wait until writing and verification finish and the tool says it is safe to disconnect. Unplug the USB cable, remove the battery, and reinstall it to boot the firmware. The documented forced-recovery procedure requires access to the mainboard. Recovery without opening the recorder has yet to be verified. [Upstream flashing and recovery notes](https://sir68k.re/posts/rh1-firmware-available/#recovery).
+Get the `RH1-Remote-1.3r5-40ELK-Scroll-Width.bin` image from the [1.3r5 release](https://github.com/untimex/cfw-mz-rh1/releases/tag/rh1-1.3r5). The image is `0xFF000` bytes. Back up your recorder's firmware before flashing with the upstream [MZ-RH1 WebUSB flasher](https://sir68k.re/rh1/fw/). Wait until writing and verification finish and the tool says it is safe to disconnect. Unplug the USB cable, remove the battery, and reinstall it to boot the firmware. The documented forced-recovery procedure requires access to the mainboard. Recovery without opening the recorder has yet to be verified. [Upstream flashing and recovery notes](https://sir68k.re/posts/rh1-firmware-available/#recovery).
 
-The 40ELK scrolling fix in 1.3r3 was confirmed on a physical MZ-RH1 with an RM-MC40ELK.
+The display changes in 1.3r5 passed simulator tests. Hardware verification of these changes is pending.
 
 | File | Purpose |
 | --- | --- |
-| `RH1-Remote-1.3r3-40ELK-Scroll.bin` | Flashable image |
-| `RH1-Remote-1.3r3-40ELK-Scroll.patch` | Complete source patch against the upstream base commit |
+| `RH1-Remote-1.3r5-40ELK-Scroll-Width.bin` | Flashable image |
+| `RH1-Remote-1.3r5-40ELK-Scroll-Width.patch` | Complete source patch against the upstream base commit |
 | `SHA256SUMS.txt` | Release file checksums |
 
-The firmware image SHA-256 is `a1832a85a6a81054052837c367417ea569c9d9900e8f21fa7af43d94c47f724c`.
+The firmware image SHA-256 is `7db403b814d13e02676fa787cc94ad6a82c87c20d437cba37df1988ec8b40150`.
 
 ## Building from source
 
 Use Arm GNU Toolchain 14.3.Rel1 and Python 3.11. The [upstream base commit](https://github.com/Sir68k/cfw-mz-rh1/tree/9fb8d45c492eedc45044f8de7e50f1635a7a020a) is `9fb8d45c492eedc45044f8de7e50f1635a7a020a`. In an upstream checkout at that commit, place the release patch in the repository root and apply it with the first command below. In this fork, start with `mkdir -p build`.
 
 ```sh
-git apply RH1-Remote-1.3r3-40ELK-Scroll.patch
+git apply RH1-Remote-1.3r5-40ELK-Scroll-Width.patch
 mkdir -p build
 make -C src/extension-code
 python3 tools/firmware-patcher/patcher.py src/patches.toml
 ```
 
-The output is `build/RH1-Remote-1.3r3-40ELK-Scroll.bin`. An independent build produced a byte-for-byte match with the release image.
+The output is `build/RH1-Remote-1.3r5-40ELK-Scroll-Width.bin`. An independent build produced a byte-for-byte match with the release image.
 
 ## Credits and license
 

@@ -28,20 +28,6 @@
     X(OLED_BR_H_M2,  0x040401FF, "Medium 2"  ) \
     X(OLED_BR_H_H,   0x050401FF, "High"      ) \
     \
-    X(NETMD,         0x000002FF, "NetMD"          ) \
-    \
-    X(WINUSB_DESCR,  0x000102FF, "WinUSB Decr."  ) \
-    X(WINUSB_D_OFF,  0x010102FF, "Off"           ) \
-    X(WINUSB_D_ON,   0x020102FF, "On"            ) \
-    \
-    X(SP_SPEEDUP,    0x000202FF, "SP Speedup"    ) \
-    X(SP_SPEEDUP_OFF,0x010202FF, "Off"           ) \
-    X(SP_SPEEDUP_ON, 0x020202FF, "On"            ) \
-    \
-    X(NETMD_CHECKOUT, 0x000302FF, "Checkout"      ) \
-    X(CHECKOUT_NORMAL,0x010302FF, "Normal"        ) \
-    X(CHECKOUT_BYPASS,0x020302FF, "Bypass"        ) \
-    \
     X(TMARK,         0x000005FF, "T-Mark"         ) \
     X(TMARK_NORM,    0x000105FF, "T-Mark"         ) \
     X(TMARK_SKIP,    0x000205FF, "Group Skip"     ) \
@@ -53,7 +39,6 @@
     X(TRACK_STYLE4,   0x000408FF, "VU|TRACK+TIME"    ) \
     X(TRACK_STYLE5,   0x000508FF, "CODEC|TRACK+TIME" ) \
     \
-    X(REMOTE_LIGHT, 0x000009FF, "Backlight") \
     X(REMOTE_STOCK, 0x000109FF, "4 sec") \
     X(REMOTE_DOUBLE, 0x000209FF, "8 sec") \
     X(REMOTE_QUAD, 0x000309FF, "16 sec") \
@@ -64,6 +49,7 @@
     X(JOY_WAKE_OFF, 0x00010BFF, "Default") \
     X(JOY_WAKE_ON, 0x00020BFF, "Backlight") \
     X(REMOTE_DISPLAY, 0xcff, "Display") \
+    X(DISPLAY_CYCLE, 0x50cff, "Title+Artist/Album") \
     X(DISPLAY_STOCK, 0x10cff, "Default") \
     X(DISPLAY_ITA, 0x20cff, "Info+Title+Artist") \
     X(DISPLAY_ITL, 0x30cff, "Info+Title+Album") \
@@ -82,13 +68,20 @@
 #define DECL_STR(name, id, text) static const char menu_str_##name[] = text;
 MENU_STRING_LIST(DECL_STR)
 
+#define CHECK_LABEL_WIDTH(name, id, text) _Static_assert(sizeof(text) - 1 <= 18, "menu label width");
+MENU_STRING_LIST(CHECK_LABEL_WIDTH)
+
 #define PTR_ENTRY(name, id, text) menu_str_##name,
 static const char *const menu_string_table[] = {
     MENU_STRING_LIST(PTR_ENTRY)
 };
 
-#define IDX_ENTRY(name, id, text) id,
-static const uint32_t menu_id_table[] = {
+/* All IDs end in ff. Fold the top byte into the unused nibble of byte 2. */
+#define PACK_MENU_ID(id) ((uint16_t)((id) >> 8) | (((id) >> 12) & 0xf000u))
+#define ASSERT_PACKABLE(name, id, text) _Static_assert(((id) & 0xf0f000ffu) == 0xff, "menu ID format");
+MENU_STRING_LIST(ASSERT_PACKABLE)
+#define IDX_ENTRY(name, id, text) PACK_MENU_ID(id),
+static const uint16_t menu_id_table[] = {
     MENU_STRING_LIST(IDX_ENTRY)
 };
 

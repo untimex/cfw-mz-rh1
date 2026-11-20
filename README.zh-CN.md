@@ -1,8 +1,8 @@
 [English](README.md)
 
-# Sony MZ-RH1 自定义固件 1.3r3
+# Sony MZ-RH1 自定义固件 1.3r5
 
-1.3r3 是基于 [Sir68k/cfw-mz-rh1](https://github.com/Sir68k/cfw-mz-rh1) 的社区修改版，面向 Sony MZ-RH1。主要改动是给 **RM-MC40ELK 三行线控**优化背光、显示布局和跳组设置，并改善机身 OLED 的汉字曲目信息显示。
+1.3r5 是基于 [Sir68k/cfw-mz-rh1](https://github.com/Sir68k/cfw-mz-rh1) 的社区修改版，面向 Sony MZ-RH1。主要改动是给 **RM-MC40ELK 三行线控**优化背光、显示布局和跳组设置，并改善机身 OLED 的汉字曲目信息显示。
 
 ## RM-MC40ELK 线控
 
@@ -20,13 +20,16 @@
 | 选项 | 第一行 | 第二行 | 第三行 |
 | --- | --- | --- | --- |
 | `Default` | 原厂布局 | 原厂布局 | 原厂布局 |
+| `Title+Artist/Album` | 曲号和播放时间 | 曲名 | 轮流显示艺术家和专辑 |
 | `Info+Title+Artist` | 曲号和播放时间 | 曲名 | 艺术家 |
 | `Info+Title+Album` | 曲号和播放时间 | 曲名 | 专辑 |
 | `Title+Artist+Album` | 曲名 | 艺术家 | 专辑 |
 
 艺术家和专辑行依赖 Hi-MD 曲目的相应字段。标准 MD 模式下按曲目保存的文字标签为曲名，因此会隐藏此选项，并恢复原厂显示布局。切回 Hi-MD 后，之前保存的布局会恢复。`DISPLAY` 键切换的其他原厂信息页保持可用。
 
-`Display` 菜单里的长布局名称会滚动显示。自定义播放画面的每一行独立判断是否需要滚动。某一行超出宽度时，能完整显示的其他行保持静止。
+`Display` 菜单里的长布局名称会滚动显示。自定义播放画面的每一行独立判断是否需要滚动。一行可以显示 5 个汉字或 10 个半角英文字符，超出才滚动。其他能完整显示的行保持静止。
+
+在 `Title+Artist/Album` 模式下，第三行按原厂时间间隔轮流显示艺术家和专辑名。如果到达切换时间时名称仍在滚动，会等到末尾显示完再切换。
 
 ### Jog Click
 此设置为优化40ELK线控的点亮背光。原机设置无论按哪个按钮，都会在触发背光的时候触发按键功能，但是更多的时候会需要只点亮背光来读取歌曲信息。因此增加了这个选项，在背光熄灭时，点击Jog dial的确定键只是点亮背光。背光亮起时Jog dial的确定键恢复其原功能。
@@ -62,30 +65,30 @@ Sir68k的v1.2r5 CFW固件提供了非常好的Track Info Display Mode在机身�
 
 ## 安装与验证
 
-从 [1.3r3 发布页](https://github.com/untimex/cfw-mz-rh1/releases/tag/rh1-1.3r3) 获取 `RH1-Remote-1.3r3-40ELK-Scroll.bin`，长度为 `0xFF000` 字节。使用上游 [MZ-RH1 WebUSB 刷写工具](https://sir68k.re/rh1/fw/) 前，请备份本机固件。等待写入和校验完成、工具提示可以断开后，断开 USB 并取出电池，重新装回电池以启动固件。已记录的强制恢复方式需要接触主板，免拆恢复尚无验证。[上游刷写与恢复说明](https://sir68k.re/posts/rh1-firmware-available/#recovery)。
+从 [1.3r5 发布页](https://github.com/untimex/cfw-mz-rh1/releases/tag/rh1-1.3r5) 获取 `RH1-Remote-1.3r5-40ELK-Scroll-Width.bin`，长度为 `0xFF000` 字节。使用上游 [MZ-RH1 WebUSB 刷写工具](https://sir68k.re/rh1/fw/) 前，请备份本机固件。等待写入和校验完成、工具提示可以断开后，断开 USB 并取出电池，重新装回电池以启动固件。已记录的强制恢复方式需要接触主板，免拆恢复尚无验证。[上游刷写与恢复说明](https://sir68k.re/posts/rh1-firmware-available/#recovery)。
 
-1.3r3 的滚动修复已在连接 RM-MC40ELK 的 MZ-RH1 上通过实机验证。
+1.3r5 的显示改动已通过模拟测试，实机验证待完成。
 
 | 文件 | 用途 |
 | --- | --- |
-| `RH1-Remote-1.3r3-40ELK-Scroll.bin` | 刷写镜像 |
-| `RH1-Remote-1.3r3-40ELK-Scroll.patch` | 相对于上游基线的完整源码补丁 |
+| `RH1-Remote-1.3r5-40ELK-Scroll-Width.bin` | 刷写镜像 |
+| `RH1-Remote-1.3r5-40ELK-Scroll-Width.patch` | 相对于上游基线的完整源码补丁 |
 | `SHA256SUMS.txt` | 发布文件的校验值 |
 
-刷写镜像的 SHA-256 为 `a1832a85a6a81054052837c367417ea569c9d9900e8f21fa7af43d94c47f724c`。
+刷写镜像的 SHA-256 为 `7db403b814d13e02676fa787cc94ad6a82c87c20d437cba37df1988ec8b40150`。
 
 ## 从源码构建
 
 使用 [上游基线提交](https://github.com/Sir68k/cfw-mz-rh1/tree/9fb8d45c492eedc45044f8de7e50f1635a7a020a)、Arm GNU Toolchain 14.3.Rel1 和 Python 3.11。在上游提交的源码目录执行以下命令，补丁文件需放在当前目录。若使用本 fork 的源码，从 `mkdir -p build` 开始执行。
 
 ```sh
-git apply RH1-Remote-1.3r3-40ELK-Scroll.patch
+git apply RH1-Remote-1.3r5-40ELK-Scroll-Width.patch
 mkdir -p build
 make -C src/extension-code
 python3 tools/firmware-patcher/patcher.py src/patches.toml
 ```
 
-生成的镜像位于 `build/RH1-Remote-1.3r3-40ELK-Scroll.bin`。发布镜像已通过独立重编译的逐字节对比。
+生成的镜像位于 `build/RH1-Remote-1.3r5-40ELK-Scroll-Width.bin`。发布镜像已通过独立重编译的逐字节对比。
 
 ## 致谢与许可
 

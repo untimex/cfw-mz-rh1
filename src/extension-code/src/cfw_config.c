@@ -59,7 +59,7 @@ void load_config_from_eeprom() {
     cfw_config.joy_dial_wake = (cfw_eeprom_data.joy_dial_wake == 1);
     cfw_config.remote_long_skip = (cfw_eeprom_data.remote_long_skip == 1);
 
-    cfw_config.remote_display = cfw_eeprom_data.remote_display <= 3 ? cfw_eeprom_data.remote_display : 0;
+    cfw_config.remote_display = cfw_eeprom_data.remote_display <= 4 ? cfw_eeprom_data.remote_display : 0;
 
     uint8_t scale = cfw_eeprom_data.remote_light_scale;
     cfw_config.remote_light_scale = (scale == 2 || scale == 4) ? scale : 0;

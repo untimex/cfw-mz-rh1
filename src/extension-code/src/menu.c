@@ -18,4 +18,6 @@ MENU_ITEM_CUSTOM(0x05, fw_menu_spct_callbacks, fw_menu_5_speed_ctl,    3)
 MENU_ITEM_CUSTOM(0x0B, fw_menu_main_callbacks, fw_menu_b_title_inp,    1)
 MENU_ITEM_CUSTOM(0x08, fw_menu_main_callbacks, fw_menu_8_options,      1)
 MENU_ITEM_SUBMENU(MENU_RESOURCE_ID(CFW), cfw)
-MENU_END(main)
+/* The firmware patch points directly to this array, so it has no submenu config. */
+    {.id = 0xffffffff},
+};

@@ -4,10 +4,14 @@
 #include "fw/tracks.h"
 #include "menu_resources.h"
 
-static uint32_t cfw_remote_menu_label(uint32_t id)
+static __attribute__((noinline)) uint32_t find_cfw_menu_label(uint32_t id)
 {
+    const uint32_t count = sizeof(menu_id_table) / sizeof(menu_id_table[0]);
+    if (id & 0xf0f00000u)
+        return count;
+    uint32_t packed = PACK_MENU_ID(id);
     uint32_t i = 0;
-    while (i < sizeof(menu_id_table) / sizeof(menu_id_table[0]) && menu_id_table[i] != id) ++i;
+    while (i < count && menu_id_table[i] != packed) ++i;
     return i;
 }
 
@@ -38,14 +42,12 @@ int cfw_load_menu_string_oled(uint32_t id, char *dest, uint8_t *len, char *n, ui
     
     else if ((id & 0xFF) == MENU_CFW_ID_MARKER) {
         offset = 0;
-        idx = 0;
-
-        for (idx = 0; idx < (sizeof(menu_id_table) / sizeof(uint32_t)); idx++) {
-            if (menu_id_table[idx] == id) {
-                break;
-            }
-        }
+        idx = find_cfw_menu_label(id);
+        if (idx == sizeof(menu_id_table) / sizeof(menu_id_table[0]))
+            return -1;
         menu_data = (void*)menu_string_table;
+        if (strlen(menu_string_table[idx]) > 16)
+            return fw_load_string_resource(offset, menu_data, 0x10, 1, idx, dest, len, n);
     }
     else
     {
@@ -55,12 +57,6 @@ int cfw_load_menu_string_oled(uint32_t id, char *dest, uint8_t *len, char *n, ui
     }
 
     _Static_assert(sizeof(menu_str_CHINESE_MODE) - 1 <= 16, "Framed OLED label width");
-    if (id == MENU_RESOURCE_ID(DISPLAY_ITA) ||
-        id == MENU_RESOURCE_ID(DISPLAY_TAL)) {
-        _Static_assert(sizeof(menu_str_DISPLAY_ITA) - 1 <= 18 && sizeof(menu_str_DISPLAY_TAL) - 1 <= 18, "layout label width");
-        return fw_load_string_resource(offset, menu_data, 0x10, 1, idx, dest, len, n);
-    }
-
     *dest = ((config & 8) != 0) ? MENU_START : MENU_SPACE;
 
     res = fw_load_string_resource(offset, menu_data, 0x10, 1, idx, dest + 1, len, n);
@@ -94,7 +90,7 @@ int cfw_load_menu_string_remote(uint32_t id, char *dest, uint8_t *len,
     if ((id & 0xff) != MENU_CFW_ID_MARKER)
         return ((remote_string_loader *)THUMB_ADDR(0xb5030))(id, dest, len, encoding, aux, flags);
 
-    uint32_t i = cfw_remote_menu_label(id);
+    uint32_t i = find_cfw_menu_label(id);
     if (i == sizeof(menu_id_table) / sizeof(menu_id_table[0])) return -1;
     const char *label = menu_string_table[i];
     *len = strlen(label);

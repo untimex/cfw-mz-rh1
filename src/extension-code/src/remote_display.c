@@ -8,14 +8,17 @@
 #define DATA32(addr) (*(volatile const uint32_t *)(addr))
 extern int cfw_is_40elk(void);
 
-enum { TITLE = 0, ARTIST = 1, ALBUM = 2, INFO = 3 };
+enum { TITLE = 0, ARTIST = 1, ALBUM = 2, INFO = 3, CYCLE = 4 };
 enum { REMOTE = 2, HOME_PAGE = 0x0b, FIRST_ROW = 6, LAST_ROW = 8 };
 enum {
     FIRST_PAUSE = 30, STEP_PAUSE = 8, NAME_MORE = 1,
-    MAX_CHUNK = 42, MAX_STATIC = 28, LCD_BYTES = 7
+    STOCK_ROTATION_TICKS = 0x7d, /* Sony home-screen name duration. */
+    /* The 40ELK shows ten single-byte or five double-byte characters. */
+    MAX_CHUNK = 42, MAX_STATIC = 28, LCD_BYTES = 10
 };
 static const uint8_t layouts[][3] = {
-    {INFO, TITLE, ARTIST}, {INFO, TITLE, ALBUM}, {TITLE, ARTIST, ALBUM}
+    {INFO, TITLE, ARTIST}, {INFO, TITLE, ALBUM}, {TITLE, ARTIST, ALBUM},
+    {INFO, TITLE, CYCLE}
 };
 
 struct scroll_cursor {
@@ -27,11 +30,20 @@ struct name_row {
     _Alignas(4) uint8_t record[0x74];
     uint32_t track;
     struct scroll_cursor scroll;
-    uint8_t type, length;
+    uint8_t field, type, length;
     uint8_t text[MAX_CHUNK + LCD_BYTES];
 };
 static struct name_row rows[3];
 static struct scroll_cursor menu_scroll[3];
+static uint8_t cycle_ticks;
+
+/* The native LCD timer calls this once per row. Keep its countdown intact. */
+void cfw_remote_display_tick(uint32_t slot)
+{
+    STOCK(func1, 0x3a5cc)(slot);
+    if (slot == LAST_ROW && cycle_ticks)
+        --cycle_ticks;
+}
 
 typedef void name_reader(uint32_t, uint32_t, void *);
 typedef uint8_t *get_row_record(uint32_t);
@@ -94,35 +106,48 @@ static void restart_name(struct name_row *row)
     uint8_t *rec = row->record;
     memset(rec, 0, sizeof(row->record));
     ((void (*)(void *))THUMB_ADDR(0x3c974))(rec);
-    memcpy(rec + 0x58, &row->track, sizeof(row->track));
+    __builtin_memcpy(rec + 0x58, &row->track, sizeof(row->track));
     rec[0x60] = row->type;
-    rec[0x63] = row->type == TITLE ? 2 : row->type == ARTIST ? 7 : 8;
+    rec[0x63] = row->type == TITLE ? 2 : row->type + 6;
     row->length = 0;
     row->scroll.offset = 0;
     row->scroll.pause = FIRST_PAUSE;
     append_chunk(row);
 }
 
-static void render_name(uint32_t slot, uint8_t type)
+static void restart_cycle(struct name_row *row, uint8_t type)
+{
+    cycle_ticks = STOCK_ROTATION_TICKS;
+    row->type = type;
+    restart_name(row);
+    if (!row->length) {
+        row->type = type ^ (ARTIST ^ ALBUM);
+        restart_name(row);
+    }
+}
+
+static void render_name(uint32_t slot, uint8_t field)
 {
     struct name_row *row = &rows[slot - FIRST_ROW];
     uint32_t track = DATA32(0x008020f0);
-    if (row->track != track || row->type != type) {
+    if (row->track != track || row->field != field) {
         row->track = track;
-        row->type = type;
-        if (track)
-            restart_name(row);
+        row->field = field;
+        if (track) {
+            if (field == CYCLE) {
+                restart_cycle(row, ARTIST);
+            } else {
+                row->type = field;
+                restart_name(row);
+            }
+        }
     }
     if (!track || !row->length) {
         STOCK(func1, 0xb3d94)(slot);
         return;
     }
     struct scroll_cursor *scroll = &row->scroll;
-    /* Sony reports the number of text positions per remote line here. */
-    unsigned width = DATA8(0x00800663);
-    if (width - 1 >= LCD_BYTES)
-        width = LCD_BYTES;
-    if ((unsigned)(row->length - scroll->offset) <= width && row->record[0x56] == NAME_MORE) {
+    if ((unsigned)(row->length - scroll->offset) <= LCD_BYTES && row->record[0x56] == NAME_MORE) {
         row->length -= scroll->offset;
         /* Sony's copy routine supports overlap with a lower destination. */
         memcpy(row->text, row->text + scroll->offset, row->length);
@@ -131,9 +156,17 @@ static void render_name(uint32_t slot, uint8_t type)
     }
     unsigned remaining = row->length - scroll->offset;
     show_window(slot, row->record, row->text + scroll->offset, remaining);
+    /* Keep the final window on screen until both the tail pause and timer expire. */
+    if (field == CYCLE && remaining <= LCD_BYTES) {
+        if (scroll->pause)
+            --scroll->pause;
+        else if (!cycle_ticks && row->record[0x56] != NAME_MORE)
+            restart_cycle(row, row->type ^ (ARTIST ^ ALBUM));
+        return;
+    }
     unsigned offset = scroll->offset;
     advance(scroll, remaining,
-            glyph_bytes(row->text + offset, row->record[0x62]), width);
+            glyph_bytes(row->text + offset, row->record[0x62]), LCD_BYTES);
     if (offset && !scroll->offset)
         restart_name(row);
 }
@@ -142,7 +175,7 @@ void cfw_remote_menu_scroll(uint32_t slot, uint32_t id)
 {
     if (slot >= FIRST_ROW && slot <= LAST_ROW &&
         (id & 0xffff) == MENU_RESOURCE_ID(REMOTE_DISPLAY) &&
-        (id >> 16) - 2 < 3 && cfw_is_40elk()) {
+        (id >> 16) - 2 < 4 && cfw_is_40elk()) {
         uint8_t *rec = STOCK(get_row_record, 0x38d6c)(slot);
         struct scroll_cursor *scroll = &menu_scroll[slot - FIRST_ROW];
         unsigned length = rec[0x61];
@@ -184,7 +217,8 @@ void cfw_remote_display(uint32_t device, uint32_t slot, uint32_t id,
     static const uint8_t home_ids[] = {0x17, 0x18, 0xa5};
     if (slot >= FIRST_ROW && slot <= LAST_ROW) {
         uint32_t index = slot - FIRST_ROW;
-        if (layout >= 1 && layout <= 3 && device == REMOTE && page == HOME_PAGE &&
+        if (layout >= 1 && layout <= sizeof(layouts) / sizeof(layouts[0]) &&
+            device == REMOTE && page == HOME_PAGE &&
             *disc_type == DISC_TYPE_HIMD &&
             id == home_ids[index] && DATA8(0x00800590) == 0 && DATA8(0x00800661) == 3 &&
             !DATA8(0x0080069e) && !DATA8(0x008006a0) && !DATA8(0x008006a2) &&
