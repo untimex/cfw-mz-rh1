@@ -67,7 +67,7 @@ Sir68k的v1.2r5 CFW固件提供了非常好的Track Info Display Mode在机身�
 
 从 [1.3r5 发布页](https://github.com/untimex/cfw-mz-rh1/releases/tag/rh1-1.3r5) 获取 `RH1-Remote-1.3r5-40ELK-Scroll-Width.bin`，长度为 `0xFF000` 字节。使用上游 [MZ-RH1 WebUSB 刷写工具](https://sir68k.re/rh1/fw/) 前，请备份本机固件。等待写入和校验完成、工具提示可以断开后，断开 USB 并取出电池，重新装回电池以启动固件。已记录的强制恢复方式需要接触主板，免拆恢复尚无验证。[上游刷写与恢复说明](https://sir68k.re/posts/rh1-firmware-available/#recovery)。
 
-1.3r5 的显示改动已通过模拟测试，实机验证待完成。
+1.3r5 已在连接 RM-MC40ELK 线控的 Sony MZ-RH1 实机上测试通过。
 
 | 文件 | 用途 |
 | --- | --- |

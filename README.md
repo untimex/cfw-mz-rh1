@@ -67,7 +67,7 @@ The firmware identifies individual Han characters, so Japanese kanji can also tr
 
 Get the `RH1-Remote-1.3r5-40ELK-Scroll-Width.bin` image from the [1.3r5 release](https://github.com/untimex/cfw-mz-rh1/releases/tag/rh1-1.3r5). The image is `0xFF000` bytes. Back up your recorder's firmware before flashing with the upstream [MZ-RH1 WebUSB flasher](https://sir68k.re/rh1/fw/). Wait until writing and verification finish and the tool says it is safe to disconnect. Unplug the USB cable, remove the battery, and reinstall it to boot the firmware. The documented forced-recovery procedure requires access to the mainboard. Recovery without opening the recorder has yet to be verified. [Upstream flashing and recovery notes](https://sir68k.re/posts/rh1-firmware-available/#recovery).
 
-The display changes in 1.3r5 passed simulator tests. Hardware verification of these changes is pending.
+1.3r5 was tested successfully on a Sony MZ-RH1 with an RM-MC40ELK remote.
 
 | File | Purpose |
 | --- | --- |
