@@ -1,7 +1,7 @@
 [firmware]
 path   = "base-fw/flash_v1.0A0_without_key_sector.bin"
 sha256 = "97632e25627376845a00bcb28f312af5c56766f319d56f5da1d49cdb96eb923b"
-output = "build/RH1-Remote-1.3r0-Group-Skip.bin"
+output = "build/RH1-Remote-1.3r3-40ELK-Scroll.bin"
 symbols = "src/extension-code/build/extension.sym"
 
 ################
@@ -12,13 +12,13 @@ symbols = "src/extension-code/build/extension.sym"
 name     = "[FW Version] In binary"
 address  = 0x00000b30
 original = [ 0xA0, 0x10 ]
-bytes    = [ 0x00, 0x13 ]
+bytes    = [ 0x03, 0x13 ]
 
 [[patch]]
 name     = "[FW Version] As a string"
 address  = 0x00000b32
 original = "1.0A0"
-bytes    = [0x31, 0x2e, 0x33, 0xB2, 0xA0] # 1.3r0 where r2 uses smaller glyphs
+bytes    = [0x31, 0x2e, 0x33, 0xB2, 0xA3] # 1.3r3 with smaller revision glyphs
 
 [[patch]]
 name     = "[FW Version] Enable full FW version in menu #1"
@@ -352,6 +352,12 @@ name = "cfw_load_menu_string_remote"
 address = 0xb3bcc
 original = [1, 240, 48, 250]
 bl = "cfw_load_menu_string_remote"
+
+[[patch]]
+name = "[Remote LCD] Scroll long Display menu choices"
+address = 0xb3bd2
+original = [0x00, 0xf0, 0x1c, 0xf9]
+bl = "cfw_remote_menu_scroll_hook"
 
 [[patch]]
 name = "cfw_remote_start_hook"

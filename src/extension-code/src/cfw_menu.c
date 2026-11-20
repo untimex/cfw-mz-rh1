@@ -1,5 +1,6 @@
 #include "fw/core.h"
 #include "fw/sys.h"
+#include "fw/sys.h"
 #include "fw/display.h"
 #include "fw/menu.h"
 #include "fw/tracks.h"
@@ -262,38 +263,27 @@ MENU_ITEM_VALUE(MENU_RESOURCE_ID(CHINESE_MODE), chinese_mode)
 MENU_ITEM_VALUE(MENU_RESOURCE_ID(TMARK), tmark_override)
 MENU_ITEM_VALUE(MENU_RESOURCE_ID(ABOUT), about)
 MENU_END(cfw)
-/* Keep the same 40ELK options on both disc types, except for the
- * custom display layout, which requires Hi-MD metadata. */
-#define REMOTE_OPTION_FIRST \
-    {0x208, fw_menu_main_callbacks, (void *)0xc9b84, 3}, \
-    {0x308, fw_menu_main_callbacks, (void *)0xc9be4, 3}, \
-    {0x408, fw_menu_main_callbacks, (void *)0xc9c3c, 3}, \
-    {0x508, fw_menu_main_callbacks, menu_cfg_remote_light, 3},
-
-#define REMOTE_OPTION_LAST \
-    MENU_ITEM_VALUE(MENU_RESOURCE_ID(JOY_WAKE), joy_dial_wake) \
-    MENU_ITEM_VALUE(MENU_RESOURCE_ID(LONG_SKIP), remote_long_skip) \
-    {0x708, fw_menu_main_callbacks, (void *)0xc9d04, 3}, \
-    {0x808, fw_menu_main_callbacks, (void *)0xc9d5c, 3}, \
-    {0xa08, (void *)0xc9e64, (void *)0xc9e04, 1}, \
-    {0xd08, fw_menu_main_callbacks, (void *)0xc9f34, 3}, \
-    {0xc08, fw_menu_main_callbacks, (void *)0xc9edc, 3}, \
-    {0xe08, fw_menu_main_callbacks, (void *)0xc9fec, 3}, \
-    {0xf08, fw_menu_main_callbacks, (void *)0xca04c, 6}, \
-    {0x1208, (void *)0xca174, (void *)0xca154, 1}, \
-    {UINT32_MAX, 0, 0, 0}
-
+enum { REMOTE_DISPLAY_INDEX = 4 };
 static const struct t_basic_menu menu_items_remote_option[] = {
-    REMOTE_OPTION_FIRST
-    MENU_ITEM_VALUE(MENU_RESOURCE_ID(REMOTE_DISPLAY), remote_display)
-    REMOTE_OPTION_LAST
+    {0x208, fw_menu_main_callbacks, (void *)0xc9b84, 3},
+    {0x308, fw_menu_main_callbacks, (void *)0xc9be4, 3},
+    {0x408, fw_menu_main_callbacks, (void *)0xc9c3c, 3},
+    {0x508, fw_menu_main_callbacks, menu_cfg_remote_light, 3},
+    [REMOTE_DISPLAY_INDEX] = MENU_ITEM_VALUE(MENU_RESOURCE_ID(REMOTE_DISPLAY), remote_display)
+    MENU_ITEM_VALUE(MENU_RESOURCE_ID(JOY_WAKE), joy_dial_wake)
+    MENU_ITEM_VALUE(MENU_RESOURCE_ID(LONG_SKIP), remote_long_skip)
+    {0x708, fw_menu_main_callbacks, (void *)0xc9d04, 3},
+    {0x808, fw_menu_main_callbacks, (void *)0xc9d5c, 3},
+    {0xa08, (void *)0xc9e64, (void *)0xc9e04, 1},
+    {0xd08, fw_menu_main_callbacks, (void *)0xc9f34, 3},
+    {0xc08, fw_menu_main_callbacks, (void *)0xc9edc, 3},
+    {0xe08, fw_menu_main_callbacks, (void *)0xc9fec, 3},
+    {0xf08, fw_menu_main_callbacks, (void *)0xca04c, 6},
+    {0x1208, (void *)0xca174, (void *)0xca154, 1},
+    {UINT32_MAX, 0, 0, 0}
 };
-static const struct t_basic_menu menu_items_remote_option_md[] = {
-    REMOTE_OPTION_FIRST
-    REMOTE_OPTION_LAST
-};
-#undef REMOTE_OPTION_FIRST
-#undef REMOTE_OPTION_LAST
+static uint32_t menu_items_remote_option_md[
+    (sizeof(menu_items_remote_option) - sizeof(menu_items_remote_option[0])) / sizeof(uint32_t)];
 
 static const struct t_menu_config_entry remote_option_config = {
     {.ptr = menu_items_remote_option}, MENU_CFG_SUB_MENU
@@ -315,8 +305,19 @@ int cfw_is_40elk(void)
 const struct t_menu_config_entry *cfw_lookup_option_config(uint32_t config, uint32_t kind)
 {
     if (kind == MENU_CFG_SUB_MENU && config == 0xc9aa4 &&
-        (*(volatile uint32_t *)0x805644 & 8) && cfw_is_40elk())
-        return *disc_type == DISC_TYPE_MD ? &remote_option_md_config : &remote_option_config;
+        (*(volatile uint32_t *)0x805644 & 8) && cfw_is_40elk()) {
+        if (*disc_type != DISC_TYPE_MD)
+            return &remote_option_config;
+        /* Build the MD table once, omitting the Hi-MD layout setting. */
+        if (!menu_items_remote_option_md[0]) {
+            const unsigned prefix = REMOTE_DISPLAY_INDEX * sizeof(menu_items_remote_option[0]);
+            memcpy(menu_items_remote_option_md, menu_items_remote_option, prefix);
+            memcpy((uint8_t *)menu_items_remote_option_md + prefix,
+                   menu_items_remote_option + REMOTE_DISPLAY_INDEX + 1,
+                   sizeof(menu_items_remote_option_md) - prefix);
+        }
+        return &remote_option_md_config;
+    }
     return (const void *)((func2 *)THUMB_ADDR(0xaa924))(config, kind);
 }
 

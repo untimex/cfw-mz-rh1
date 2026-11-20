@@ -1,6 +1,7 @@
 #include "cfw_config.h"
 #include "fw/tracks.h"
 #include "fw/sys.h"
+#include "menu_resources.h"
 
 #define STOCK(type, addr) ((type *)THUMB_ADDR(addr))
 #define DATA8(addr) (*(volatile const uint8_t *)(addr))
@@ -9,93 +10,167 @@ extern int cfw_is_40elk(void);
 
 enum { TITLE = 0, ARTIST = 1, ALBUM = 2, INFO = 3 };
 enum { REMOTE = 2, HOME_PAGE = 0x0b, FIRST_ROW = 6, LAST_ROW = 8 };
+enum {
+    FIRST_PAUSE = 30, STEP_PAUSE = 8, NAME_MORE = 1,
+    MAX_CHUNK = 42, MAX_STATIC = 28, LCD_BYTES = 7
+};
 static const uint8_t layouts[][3] = {
     {INFO, TITLE, ARTIST}, {INFO, TITLE, ALBUM}, {TITLE, ARTIST, ALBUM}
 };
 
-/* Private copies of the native 0x74-byte name records. Sony's formatter
- * keeps the multi-byte character cursor in each record. The default and
- * DISPLAY pages continue using their own Sony-owned records. */
+struct scroll_cursor {
+    uint8_t offset, pause;
+};
+
 struct name_row {
+    /* The native formatter keeps its metadata cursor in this record. */
     _Alignas(4) uint8_t record[0x74];
     uint32_t track;
-    uint8_t active, type, disc, caps, window, continued;
+    struct scroll_cursor scroll;
+    uint8_t type, length;
+    uint8_t text[MAX_CHUNK + LCD_BYTES];
 };
 static struct name_row rows[3];
+static struct scroll_cursor menu_scroll[3];
 
-typedef void reset_record(void *);
-typedef void name_reader(uint32_t device, uint32_t caps, void *record);
+typedef void name_reader(uint32_t, uint32_t, void *);
+typedef uint8_t *get_row_record(uint32_t);
 typedef int send_text(uint32_t, const void *, uint32_t, uint32_t, uint32_t,
-                     uint32_t, uint32_t, uint32_t, uint32_t, const void *, uint32_t);
+                      uint32_t, uint32_t, uint32_t, uint32_t, const void *, uint32_t);
 
-static void read_chunk(struct name_row *row, int restart)
+static unsigned glyph_bytes(const uint8_t *text, unsigned encoding)
+{
+    if (encoding == 0x90) {
+        /* The stock Japanese scanner uses this ROM vector to classify lead bytes. */
+        unsigned kind = (*(func1 *const *)0x70)(*text);
+        return 1 + (kind == 4 || kind == 6);
+    }
+    if (encoding == 0x84)
+        return (*text & 0xfc) == 0xd8 ? 4 : 2;
+    return encoding == 2 ? 2 : 1;
+}
+
+/* Keep using the stock static-text path. Each offset is a fresh frame,
+ * independent of the remote's acknowledgement for native scrolling. */
+static void show_window(uint32_t slot, const uint8_t *rec, const uint8_t *text,
+                        unsigned length)
+{
+    if (length > MAX_STATIC)
+        length = MAX_STATIC;
+    STOCK(send_text, 0x35b80)(slot - FIRST_ROW, text, rec[0x63], 0, 0,
+                              rec[0x62], 0, 0, 0, rec + 0x6c, length);
+}
+
+static __attribute__((noinline)) void advance(struct scroll_cursor *scroll, unsigned remaining,
+                                               unsigned step, unsigned width)
+{
+    if (scroll->pause) {
+        --scroll->pause;
+    } else if (remaining > width) {
+        scroll->offset += step;
+        scroll->pause = remaining - step <= width ? FIRST_PAUSE : STEP_PAUSE;
+    } else if (scroll->offset) {
+        scroll->offset = 0;
+        scroll->pause = FIRST_PAUSE;
+    }
+}
+
+static void append_chunk(struct name_row *row)
 {
     uint8_t *rec = row->record;
-    if (restart) {
-        memset(rec, 0, sizeof(row->record));
-        STOCK(reset_record, 0x3c974)(rec);
-        /* 0x58 = native track id, 0x60 = field type, 0x63 = icon. */
-        memcpy(rec + 0x58, &row->track, sizeof(row->track));
-        rec[0x60] = row->type;
-        rec[0x63] = row->type == TITLE ? 2 : row->type == ARTIST ? 7 : 8;
-        row->continued = 0;
-    } else {
-        row->continued = 1;
+    rec[0x61] = 0;
+    STOCK(name_reader, 0x3bfb8)(REMOTE, DATA8(0x00800665), rec);
+    unsigned length = rec[0x61];
+    if (!length || length > MAX_CHUNK) {
+        rec[0x56] = 0;
+        return;
     }
-    if (row->disc == DISC_TYPE_HIMD) {
-        STOCK(name_reader, 0x3bfb8)(REMOTE, row->caps, rec);
-    } else {
-        /* Same wide-title preference as Sony's reader at 0x3b36a.
-         * A missing wide title falls back to the ordinary MD title. */
-        if (!(row->caps & 4) && (restart || (rec[0x73] & 0x20))) {
-            rec[0x73] |= 0x20;
-            STOCK(name_reader, 0x3c190)(REMOTE, row->caps, rec);
-            if (rec[0x56]) return;
-            rec[0x73] &= ~0x20;
-            STOCK(reset_record, 0x3c974)(rec);
-        }
-        STOCK(name_reader, 0x3c228)(REMOTE, row->caps, rec);
-    }
+    memcpy(row->text + row->length, rec, length);
+    row->length += length;
+}
+
+static void restart_name(struct name_row *row)
+{
+    uint8_t *rec = row->record;
+    memset(rec, 0, sizeof(row->record));
+    ((void (*)(void *))THUMB_ADDR(0x3c974))(rec);
+    memcpy(rec + 0x58, &row->track, sizeof(row->track));
+    rec[0x60] = row->type;
+    rec[0x63] = row->type == TITLE ? 2 : row->type == ARTIST ? 7 : 8;
+    row->length = 0;
+    row->scroll.offset = 0;
+    row->scroll.pause = FIRST_PAUSE;
+    append_chunk(row);
 }
 
 static void render_name(uint32_t slot, uint8_t type)
 {
     struct name_row *row = &rows[slot - FIRST_ROW];
     uint32_t track = DATA32(0x008020f0);
-    uint32_t disc = *disc_type;
-    uint8_t caps = DATA8(0x00800665);
-    /* Four playback seconds per chunk. Use the same cached second the
-     * stock Info renderer reads. No I/O on ordinary redraws. */
-    uint8_t window = DATA32(0x00801b38) / 4;
-    if (!track || disc > DISC_TYPE_MD || (disc == DISC_TYPE_MD && type != TITLE)) {
-        row->active = 0;
-        STOCK(func1, 0xb3d94)(slot);
-        return;
-    }
-    if (!row->active || row->track != track || row->type != type ||
-        row->disc != disc || row->caps != caps) {
+    if (row->track != track || row->type != type) {
         row->track = track;
         row->type = type;
-        row->disc = disc;
-        row->caps = caps;
-        row->active = 1;
-        read_chunk(row, 1);
-    } else if (row->window != window) {
-        if (row->record[0x56] == 1)
-            read_chunk(row, 0);
-        else if (row->continued || !row->record[0x61])
-            read_chunk(row, 1);
+        if (track)
+            restart_name(row);
     }
-    row->window = window;
-    const uint8_t *rec = row->record;
-    /* Sony requests at most 14 characters for a remote chunk. Leave room
-     * for the driver prefix and terminator even for a two-byte encoding. */
-    if (!rec[0x56] || !rec[0x61] || rec[0x61] > 28) {
+    if (!track || !row->length) {
         STOCK(func1, 0xb3d94)(slot);
         return;
     }
-    STOCK(send_text, 0x35b80)(slot - FIRST_ROW, rec, rec[0x63], 0, 0,
-                              rec[0x62], 0, 0, 0, rec + 0x6c, rec[0x61]);
+    struct scroll_cursor *scroll = &row->scroll;
+    /* Sony reports the number of text positions per remote line here. */
+    unsigned width = DATA8(0x00800663);
+    if (width - 1 >= LCD_BYTES)
+        width = LCD_BYTES;
+    if ((unsigned)(row->length - scroll->offset) <= width && row->record[0x56] == NAME_MORE) {
+        row->length -= scroll->offset;
+        /* Sony's copy routine supports overlap with a lower destination. */
+        memcpy(row->text, row->text + scroll->offset, row->length);
+        scroll->offset = 0;
+        append_chunk(row);
+    }
+    unsigned remaining = row->length - scroll->offset;
+    show_window(slot, row->record, row->text + scroll->offset, remaining);
+    unsigned offset = scroll->offset;
+    advance(scroll, remaining,
+            glyph_bytes(row->text + offset, row->record[0x62]), width);
+    if (offset && !scroll->offset)
+        restart_name(row);
+}
+
+void cfw_remote_menu_scroll(uint32_t slot, uint32_t id)
+{
+    if (slot >= FIRST_ROW && slot <= LAST_ROW &&
+        (id & 0xffff) == MENU_RESOURCE_ID(REMOTE_DISPLAY) &&
+        (id >> 16) - 2 < 3 && cfw_is_40elk()) {
+        uint8_t *rec = STOCK(get_row_record, 0x38d6c)(slot);
+        struct scroll_cursor *scroll = &menu_scroll[slot - FIRST_ROW];
+        unsigned length = rec[0x61];
+        if (length && length <= MAX_CHUNK) {
+            if ((rec[0x73] & 2) || scroll->offset >= length) {
+                scroll->offset = 0;
+                scroll->pause = FIRST_PAUSE;
+            }
+            unsigned remaining = length - scroll->offset;
+            show_window(slot, rec, rec + scroll->offset, remaining);
+            advance(scroll, remaining, 1, LCD_BYTES);
+            rec[0x73] &= ~2;
+            return;
+        }
+    }
+    STOCK(func1, 0xb3e0e)(slot);
+}
+
+/* The native menu renderer retains the resource ID in r6 at this callsite. */
+__attribute__((naked)) void cfw_remote_menu_scroll_hook(void)
+{
+    __asm__ volatile (
+        ".syntax unified\n"
+        "push {r4, lr}\n"
+        "movs r1, r6\n"
+        "bl cfw_remote_menu_scroll\n"
+        "pop {r4, pc}\n"
+    );
 }
 
 typedef void renderer(uint32_t device, uint32_t slot, uint32_t id);
@@ -110,20 +185,20 @@ void cfw_remote_display(uint32_t device, uint32_t slot, uint32_t id,
     if (slot >= FIRST_ROW && slot <= LAST_ROW) {
         uint32_t index = slot - FIRST_ROW;
         if (layout >= 1 && layout <= 3 && device == REMOTE && page == HOME_PAGE &&
-            *disc_type != DISC_TYPE_MD &&
+            *disc_type == DISC_TYPE_HIMD &&
             id == home_ids[index] && DATA8(0x00800590) == 0 && DATA8(0x00800661) == 3 &&
             !DATA8(0x0080069e) && !DATA8(0x008006a0) && !DATA8(0x008006a2) &&
             STOCK(func, 0x2cc6a)() && STOCK(func, 0x2d07c)() && cfw_is_40elk()) {
             uint8_t field = layouts[layout - 1][index];
             if (field == INFO) {
-                rows[index].active = 0;
+                rows[index].track = 0;
                 STOCK(renderer, 0xb13e6)(device, slot, 0x18);
             } else {
                 render_name(slot, field);
             }
             return;
         }
-        rows[index].active = 0;
+        rows[index].track = 0;
     }
     original(device, slot, id);
 }
