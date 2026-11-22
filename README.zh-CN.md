@@ -1,95 +1,70 @@
 [English](README.md)
 
-# Sony MZ-RH1 自定义固件 1.3r5
+# Sony MZ-RH1 自定义固件 1.3r11
 
-1.3r5 是基于 [Sir68k/cfw-mz-rh1](https://github.com/Sir68k/cfw-mz-rh1) 的社区修改版，面向 Sony MZ-RH1。主要改动是给 **RM-MC40ELK 三行线控**优化背光、显示布局和跳组设置，并改善机身 OLED 的汉字曲目信息显示。
+1.3r11 是基于 [Sir68k/cfw-mz-rh1](https://github.com/Sir68k/cfw-mz-rh1) 的社区修改版。此版本在 1.2r5 基础上为 RM-MC35ELK和RM-MC40ELK 增加了一系列汉字显示优化功能，以及机身 OLED 的汉字处理设置。
 
-## RM-MC40ELK 线控
+## RM-MC35ELK 汉字显示
 
-下列设置位于线控的 `Option` 菜单。固件根据连接状态、线控标识和三行显示模式启用这些设置，其他线控沿用原厂菜单和按键逻辑。
+RM-MC35ELK 的硬件决定了它只能显示Shift-JIS 字符。曾经想在这个线控上完整显示中文，必须在写入歌曲时就把Unicode中文转换成Shift-JIS字符，非常麻烦。因此在这版固件里，内置了针对35ELK的字符转换功能。
+当连接 RM-MC35ELK 并使用 Hi-MD 模式时，固件会自动尝试将 Unicode 曲名等文字转换为线控可以显示的 Shift-JIS 字符。遇到 Shift-JIS 缺少的简体汉字时，优先使用字表中可编码的对应字。转换只作用于线控显示，碟片上的文字标签保持原样。
 
-### Backlight
-原厂的线控背光亮起时间太短了，往往信息还没读完背光就熄灭了，因此增加了这个选项。
+注意此功能仅在Hi-MD模式下才能实现。因为传统MD的曲名仅支持Shift-JIS字符，Unicode中文根本无法写入曲名中。
 
-在原厂 `Backlight` 菜单中，自动熄灯可选 **`4 sec`、`8 sec`、`16 sec`**，另有 `On` 和 `Off`。秒数为按固件计时推算的标称值。
+| 原曲名 | 在线控上的显示 | 说明 |
+| --- | --- | --- |
+| 《阴天》 | 《陰天》 | 使用 Shift-JIS 可显示的对应繁体字，已在 RH1上实机验证。 |
+| 《你说》 | 《祢説》 | 「祢」取字形相近，「説」采用日文汉字写法。 |
+| `A日本汉语B` | `Ａ日本漢語Ｂ` | 转换后的混排文字使用双字节显示，拉丁字母与 ASCII 标点以全角显示。 |
 
-### Display
+Shift-JIS 字库覆盖范围有限。没有可用对应字的字符以替代符号显示。此转换由固件根据线控型号自动启用。
 
-40ELk明明有三行显示，但是在Hi-MD模式下播放，线控屏幕第一行是空白或者group，而group应用场景不多，大部分情况下浪费了显示空间。因此设置了这个选项，可以完整利用40ELk的三行空间显示更多信息。
+## RM-MC40ELK 线控设置
 
-| 选项 | 第一行 | 第二行 | 第三行 |
-| --- | --- | --- | --- |
-| `Default` | 原厂布局 | 原厂布局 | 原厂布局 |
-| `Title+Artist/Album` | 曲号和播放时间 | 曲名 | 轮流显示艺术家和专辑 |
-| `Info+Title+Artist` | 曲号和播放时间 | 曲名 | 艺术家 |
-| `Info+Title+Album` | 曲号和播放时间 | 曲名 | 专辑 |
-| `Title+Artist+Album` | 曲名 | 艺术家 | 专辑 |
-
-艺术家和专辑行依赖 Hi-MD 曲目的相应字段。标准 MD 模式下按曲目保存的文字标签为曲名，因此会隐藏此选项，并恢复原厂显示布局。切回 Hi-MD 后，之前保存的布局会恢复。`DISPLAY` 键切换的其他原厂信息页保持可用。
-
-`Display` 菜单里的长布局名称会滚动显示。自定义播放画面的每一行独立判断是否需要滚动。一行可以显示 5 个汉字或 10 个半角英文字符，超出才滚动。其他能完整显示的行保持静止。
-
-在 `Title+Artist/Album` 模式下，第三行按原厂时间间隔轮流显示艺术家和专辑名。如果到达切换时间时名称仍在滚动，会等到末尾显示完再切换。
-
-### Jog Click
-此设置为优化40ELK线控的点亮背光。原机设置无论按哪个按钮，都会在触发背光的时候触发按键功能，但是更多的时候会需要只点亮背光来读取歌曲信息。因此增加了这个选项，在背光熄灭时，点击Jog dial的确定键只是点亮背光。背光亮起时Jog dial的确定键恢复其原功能。
-
-- **`Default`** 保留原厂中央滚轮按键行为。
-- **`Backlight`** 适用于 `4 sec`、`8 sec` 或 `16 sec` 自动背光档。
-
-### Group Skip
-
-我惊奇的发现40ELK在原厂设置下竟然没有十曲跳过，或者Group功能。因此我把这个功能设定在了长按上一曲和下一曲上。
-
-| 选项 | 播放或停播界面上的上一首和下一首 |
+| `Option` 菜单项 | 功能 |
 | --- | --- |
-| `Off`（默认） | 使用原厂按键行为。 |
-| `Long Press` | 短按在松手时执行原厂单曲操作。长按向对应方向跳组，碟片无分组时使用原厂十曲跳转。 |
+| `Backlight` | 自动熄灯可选 `4 sec`、`8 sec` 或 `16 sec`，另有 `On` 和 `Off`。秒数为标称值。 |
+| `Jog Click` | 选择 `Backlight` 时，在自动背光档下，背光熄灭后第一次按下滚轮中央只点亮背光。亮屏时按下会执行原有功能。 |
+| `Display` | 自定义 Hi-MD 的三行播放信息。 |
+| `Group Skip` | 选择 `Long Press` 后，播放或停播时长按上一首或下一首可向对应方向跳组。碟片没有分组时，每次跳过十曲。 |
 
-每次长按触发一次。曲目边界和播放模式由原厂逻辑处理，菜单和编辑界面沿用原厂按键行为。[索尼 MZ-RH1 操作手册第 40 页](https://www.minidisc.org/manuals/sony/Sony_MZ-RH1_user_manual.pdf#page=40)。
+`Display` 提供 `Default`、`Title+Artist/Album`、`Info+Title+Artist`、`Info+Title+Album` 和 `Title+Artist+Album`。`Title+Artist/Album` 的第三行轮流显示艺术家和专辑，长文字会滚动到末尾后再切换。自定义布局的各行独立滚动，超出五个汉字或十个半角英文字符的显示宽度时才开始滚动。标准 MD 模式使用原厂布局，线控的 `DISPLAY` 键仍可切换原厂信息页。
 
 ## 机身 OLED
 
-Sir68k的v1.2r5 CFW固件提供了非常好的Track Info Display Mode在机身的OLED上，可惜RH1的机身OLED显示不支持任何的汉字，导致如果有汉字信息的曲目在OLED上显示就会出现乱码。因此我加入了这个辅助设定。
+在 `CFW Settings → [ChineseCharacter]` 中，可选择 `Off`、`Pinyin`、`Original` 或 `Skip`，分别对应现有显示、拼音、遇到汉字时使用原厂布局和跳过汉字。这项设置只作用于机身 OLED。
 
-在机身的 `CFW Settings → [ChineseCharacter]` 中选择汉字处理方式。适用范围为 `TrackInfoStyle` 当前布局显示的曲名、组名、碟名、艺术家和专辑等字段，具体取决于碟片格式和布局。该设置只作用于机身 OLED 的显示内容。
+## 刷写与回退
 
-| 选项 | 显示方式 |
-| --- | --- |
-| `Off`（默认） | 使用现有的 `TrackInfoStyle` 显示方式。 |
-| `Pinyin` | 将能够查表的汉字转为无声调拼音。无对应读音的字以 `?` 表示。 |
-| `Original` | 当前曲目要显示的字段含汉字时，机身暂时使用原厂 `1.0A0` 的显示布局。切换到无汉字的曲目后，继续使用所选的 `TrackInfoStyle` 布局。 |
-| `Skip` | 省略显示字段中的汉字，保留 OLED 能显示的其余内容。 |
+1. 使用平时的 RH1 刷写流程，先备份本机固件。
+2. 解压发行包，选择 `RH1-Remote-1.3r11-35ELK-Character-Aliases.bin`。镜像为 1,044,480 字节（`0xFF000`）。
+3. 等刷写工具完成写入和校验，并提示可以断开后，拔掉 USB，取出电池再重新装回。
+4. 接上 35ELK，播放一首含「你」或「说」的 Hi-MD 曲目，确认替换后的显示。
 
-固件按字符识别汉字，因此日文汉字也可能触发这些设置。拼音使用普通话字音，多音字读音可能和语境不同。机身 OLED 熄屏时暂停曲目信息转换，并减少重复的清屏和刷新操作，屏幕点亮后再更新，以节约电量。
+[下载 1.3r11](https://github.com/untimex/cfw-mz-rh1/releases/tag/rh1-1.3r11) · [刷写工具](https://sir68k.re/rh1/fw/)
 
-## 安装与验证
+r11 镜像的 SHA-256 为：
 
-从 [1.3r5 发布页](https://github.com/untimex/cfw-mz-rh1/releases/tag/rh1-1.3r5) 获取 `RH1-Remote-1.3r5-40ELK-Scroll-Width.bin`，长度为 `0xFF000` 字节。使用上游 [MZ-RH1 WebUSB 刷写工具](https://sir68k.re/rh1/fw/) 前，请备份本机固件。等待写入和校验完成、工具提示可以断开后，断开 USB 并取出电池，重新装回电池以启动固件。已记录的强制恢复方式需要接触主板，免拆恢复尚无验证。[上游刷写与恢复说明](https://sir68k.re/posts/rh1-firmware-available/#recovery)。
+```text
+8153251ddfb8853ce6f2e0ed49642390140e38dc8fe56f3af08f6fd07a9581a7
+```
 
-1.3r5 已在连接 RM-MC40ELK 线控的 Sony MZ-RH1 实机上测试通过。
-
-| 文件 | 用途 |
-| --- | --- |
-| `RH1-Remote-1.3r5-40ELK-Scroll-Width.bin` | 刷写镜像 |
-| `RH1-Remote-1.3r5-40ELK-Scroll-Width.patch` | 相对于上游基线的完整源码补丁 |
-| `SHA256SUMS.txt` | 发布文件的校验值 |
-
-刷写镜像的 SHA-256 为 `7db403b814d13e02676fa787cc94ad6a82c87c20d437cba37df1988ec8b40150`。
 
 ## 从源码构建
 
-使用 [上游基线提交](https://github.com/Sir68k/cfw-mz-rh1/tree/9fb8d45c492eedc45044f8de7e50f1635a7a020a)、Arm GNU Toolchain 14.3.Rel1 和 Python 3.11。在上游提交的源码目录执行以下命令，补丁文件需放在当前目录。若使用本 fork 的源码，从 `mkdir -p build` 开始执行。
+使用 [1.3r5 源码](https://github.com/untimex/cfw-mz-rh1/releases/tag/rh1-1.3r5)、Arm GNU Toolchain 14.3.Rel1 和 Python 3.11。将发行包内的三份补丁放到源码目录，在该目录执行：
 
 ```sh
-git apply RH1-Remote-1.3r5-40ELK-Scroll-Width.patch
+git apply 1.3r5-to-1.3r8-35ELK-Traditional.patch
+git apply 1.3r8-to-1.3r10-35ELK-Wide-Test.patch
+git apply 1.3r10-to-1.3r11-35ELK-Character-Aliases.patch
 mkdir -p build
 make -C src/extension-code
 python3 tools/firmware-patcher/patcher.py src/patches.toml
 ```
 
-生成的镜像位于 `build/RH1-Remote-1.3r5-40ELK-Scroll-Width.bin`。发布镜像已通过独立重编译的逐字节对比。
+输出文件为 `build/RH1-Remote-1.3r11-35ELK-Character-Aliases.bin`。发行包的 `SHA256SUMS.txt` 列出了 r11 镜像和 r10 回退镜像的校验值。
 
 ## 致谢与许可
 
-感谢 Sir68k（Jim B.）开发 MZ-RH1 自定义固件和刷写工具，Sir68k对于RH1的贡献是无可替代的。拼音查找表由 ICU `Han-Latin` 转写数据生成。上游 MIT 许可和 ICU 许可随发行包提供。
+感谢 Sir68k 开发 MZ-RH1 自定义固件和刷写工具。35ELK 的简繁转换字表使用 OpenCC 1.1.9 的 `STCharacters.txt` 生成，OpenCC 许可随发行包提供。机身 OLED 的拼音字表基于 ICU `Han-Latin` 数据。

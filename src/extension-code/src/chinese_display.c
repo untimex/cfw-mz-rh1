@@ -2,6 +2,8 @@
 #include "cfw_config.h"
 #include "track.h"
 #include "han_readings.inc"
+#include "remote_sjis.h"
+#include "sjis_reading_exceptions.inc"
 
 enum { UTF16BE = 0x84, SHIFT_JIS = 0x90 };
 typedef int raw_begin(void *, uint8_t *, unsigned, unsigned, int, int);
@@ -47,13 +49,10 @@ static unsigned unicode_reading(unsigned cp) {
 }
 
 static unsigned sjis_reading(unsigned pair) {
-    unsigned lead = pair >> 8, trail = pair & 255, row;
-    if (lead >= 0x88 && lead <= 0x9f) row = lead - 0x88;
-    else if (lead >= 0xe0 && lead <= 0xea) row = 24 + lead - 0xe0;
-    else if (lead == 0xed || lead == 0xee) row = 35 + lead - 0xed;
-    else if (lead >= 0xfa && lead <= 0xfc) row = 37 + lead - 0xfa;
-    else return 0;
-    return packed_id(sjis_readings, row * 188 + trail - 0x40 - (trail > 0x7f));
+    for (unsigned i = 0; i < sizeof(sjis_reading_exceptions) / sizeof(uint16_t); i += 2)
+        if (sjis_reading_exceptions[i] == pair)
+            return sjis_reading_exceptions[i+1];
+    return unicode_reading(cfw_sjis_to_unicode(pair));
 }
 
 static void append(struct writer *w, const char *text, unsigned len) {

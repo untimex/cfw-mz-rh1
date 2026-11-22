@@ -34,7 +34,9 @@ SRCS = src/init.c \
        src/remote_light.c \
        src/remote_display.c \
        src/remote_long_skip.c \
-       src/chinese_display.c
+       src/chinese_display.c \
+       src/remote_sjis.c \
+       src/remote_title_wide.c
 
 INCLUDES += ./
 
@@ -59,7 +61,10 @@ build/objs/%.o: %.c build/objs
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 build/app.bin: build/app.elf build/app.lst
-	$(OCPY) $< $@ -O binary
+	$(OCPY) -j .sjis_prefix $< build/sjis_prefix.bin -O binary
+	$(OCPY) -j .sjis_traditional $< build/sjis_traditional.bin -O binary
+	$(OCPY) -j .wide_title $< build/remote_title_wide.bin -O binary
+	$(OCPY) -R .wide_title -R .sjis_prefix -R .sjis_traditional $< $@ -O binary
 	$(SZ) $<
 
 build/app.lst: build/app.elf build

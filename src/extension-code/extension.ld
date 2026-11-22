@@ -10,7 +10,12 @@ MEMORY
   # D-RAM safe zone: 0200_8900 - 0200_e300 -> 5A00 (23_040, ~23k) bytes
   */
 
+  s_sjis   (r)   : ORIGIN = 0x000E0094, LENGTH = 0x00000F6C
   s_flash  (rx)  : ORIGIN = 0x000E1000, LENGTH = 0x0000A000
+  /* Stock ROM padding after the programming image's last initialized word.
+   * End before the next boot stub at 0xFB000. Read-only character data. */
+  s_trad   (r)   : ORIGIN = 0x000F9100, LENGTH = 0x00001760
+  s_wide   (rx)  : ORIGIN = 0x000FA860, LENGTH = 0x000007A0
   s_sram   (rwx) : ORIGIN = 0x00805e00, LENGTH = 0x00001A00
   s_dram   (rwx) : ORIGIN = 0x02008900, LENGTH = 0x00005A00
 }
@@ -19,6 +24,12 @@ SECTIONS
 {
     __cfw_start__ = LOADADDR(.text);
 
+    .wide_title :
+    {
+        *remote_title_wide.o(.text* .rodata*)
+        . = ALIGN(4);
+    } > s_wide
+
     .text :
     {
         *(.text.init)
@@ -26,6 +37,18 @@ SECTIONS
         *(.rodata*)
         . = ALIGN(4);
     } > s_flash
+
+    .sjis_prefix :
+    {
+        *(.sjis_prefix)
+        . = ALIGN(4);
+    } > s_sjis
+
+    .sjis_traditional :
+    {
+        *(.sjis_traditional)
+        . = ALIGN(4);
+    } > s_trad
 
     .data : AT (LOADADDR(.text) + SIZEOF(.text))
     {
