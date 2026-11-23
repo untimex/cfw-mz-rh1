@@ -1,3 +1,5 @@
+**My heartfelt thanks to [Sir68k](https://github.com/Sir68k)! Your pioneering work gave the classic Sony MZ-RH1 Hi-MD Walkman new possibilities years after its release. You made custom firmware a reality and shared the source code, flashing tools, and recovery methods so others could keep exploring. The display and remote-control improvements in this fork are my small contribution, made possible by standing on the shoulders of a giant. Thank you for opening this door for the MZ-RH1 and the entire MiniDisc community!**
+
 [简体中文](README.zh-CN.md)
 
 # Sony MZ-RH1 Custom Firmware 1.3r11
